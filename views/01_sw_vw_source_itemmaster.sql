@@ -25,10 +25,8 @@ ConsumptionStats AS (
         STDEV(ConsumptionQty) AS StdevConsumption,
         MAX(ConsumptionQty) AS MaxConsumption,
         MIN(ConsumptionQty) AS MinConsumption,
-        PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY ConsumptionQty)
-            OVER (PARTITION BY ITEMNMBR) AS P75Consumption,
-        PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY ConsumptionQty)
-            OVER (PARTITION BY ITEMNMBR) AS P95Consumption
+    PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY ConsumptionQty) AS P75Consumption,
+    PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY ConsumptionQty) AS P95Consumption
     FROM ConsumptionHistory
     GROUP BY ITEMNMBR
 ),
