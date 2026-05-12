@@ -37,6 +37,18 @@ PercentileStats AS (
             OVER (PARTITION BY ITEMNMBR) AS P95Consumption
     FROM ConsumptionHistory
 ),
+ConsumptionStatsWithPercentiles AS (
+    SELECT
+        cs.ITEMNMBR,
+        cs.BatchCount,
+        cs.AvgConsumption,
+        cs.StdevConsumption,
+        cs.MaxConsumption,
+        ps.P75Consumption,
+        ps.P95Consumption
+    FROM ConsumptionStats cs
+    LEFT JOIN PercentileStats ps ON cs.ITEMNMBR = ps.ITEMNMBR
+),
 ItemBase AS (
     SELECT
         TRIM(i.ITEMNMBR) AS ITEMNMBR,
@@ -51,28 +63,28 @@ ItemBase AS (
         COALESCE(q.QTYONORD, 0) AS QtyOnOrder,
         COALESCE(q.QTYBKORD, 0) AS QtyBackOrdered,
         COALESCE(v.[Vendor ID], 'UNASSIGNED') AS PRIME_VNDR,
-        cs.BatchCount,
-        cs.AvgConsumption,
-        cs.StdevConsumption,
-        cs.MaxConsumption,
-        ps.P75Consumption,
-        ps.P95Consumption,
+        csp.BatchCount,
+        csp.AvgConsumption,
+        csp.StdevConsumption,
+        csp.MaxConsumption,
+        csp.P75Consumption,
+        csp.P95Consumption,
         CASE
-            WHEN cs.BatchCount IS NULL OR cs.BatchCount < 3 THEN 'NEW'
-            WHEN cs.StdevConsumption / NULLIF(cs.AvgConsumption, 0) >= 0.40 THEN 'VOLATILE'
-            WHEN cs.StdevConsumption / NULLIF(cs.AvgConsumption, 0) >= 0.15 THEN 'MODERATE'
+            WHEN csp.BatchCount IS NULL OR csp.BatchCount < 3 THEN 'NEW'
+            WHEN csp.StdevConsumption / NULLIF(csp.AvgConsumption, 0) >= 0.40 THEN 'VOLATILE'
+            WHEN csp.StdevConsumption / NULLIF(csp.AvgConsumption, 0) >= 0.15 THEN 'MODERATE'
             ELSE 'STABLE'
         END AS RiskClass,
         CASE
-            WHEN cs.BatchCount IS NULL OR cs.BatchCount < 5
-                 THEN COALESCE(cs.MaxConsumption, 0) * 1.5
-            WHEN cs.StdevConsumption / NULLIF(cs.AvgConsumption, 0) >= 0.40
-                THEN COALESCE(ps.P95Consumption, 0)
-            ELSE COALESCE(ps.P75Consumption, 0)
+            WHEN csp.BatchCount IS NULL OR csp.BatchCount < 5
+                 THEN COALESCE(csp.MaxConsumption, 0) * 1.5
+            WHEN csp.StdevConsumption / NULLIF(csp.AvgConsumption, 0) >= 0.40
+                THEN COALESCE(csp.P95Consumption, 0)
+            ELSE COALESCE(csp.P75Consumption, 0)
         END AS SS_Qty,
-        CASE WHEN cs.AvgConsumption > q.QTYONHND * 2.0 THEN 'CRITICAL'
-             WHEN cs.AvgConsumption > q.QTYONHND * 1.5 THEN 'WARNING'
-             WHEN cs.StdevConsumption / NULLIF(cs.AvgConsumption, 0) > 0.4 THEN 'VOLATILE'
+        CASE WHEN csp.AvgConsumption > q.QTYONHND * 2.0 THEN 'CRITICAL'
+             WHEN csp.AvgConsumption > q.QTYONHND * 1.5 THEN 'WARNING'
+             WHEN csp.StdevConsumption / NULLIF(csp.AvgConsumption, 0) > 0.4 THEN 'VOLATILE'
              ELSE 'ADEQUATE' END AS CommercialSignal,
         CAST(GETDATE() AS DATE) AS AsOfDate
     FROM dbo.IV00101 i WITH (NOLOCK)
@@ -80,11 +92,9 @@ ItemBase AS (
         ON TRIM(i.ITEMNMBR) = TRIM(q.ITEMNMBR)
     LEFT JOIN dbo.Prosenthal_Vendor_Items v WITH (NOLOCK)
         ON TRIM(i.ITEMNMBR) = TRIM(v.[Item Number])
-    LEFT JOIN ConsumptionStats cs
-        ON TRIM(i.ITEMNMBR) = cs.ITEMNMBR
-    LEFT JOIN PercentileStats ps
-        ON TRIM(i.ITEMNMBR) = ps.ITEMNMBR
+    LEFT JOIN ConsumptionStatsWithPercentiles csp
+        ON TRIM(i.ITEMNMBR) = csp.ITEMNMBR
      WHERE i.ITEMNMBR NOT LIKE '20%'
-      AND i.ITEMNMBR NOT LIKE '15%'
+       AND i.ITEMNMBR NOT LIKE '15%'
 )
 SELECT * FROM ItemBase;
