@@ -82,8 +82,8 @@ Tier4_CrossSuffix AS (
         NULL AS LotNumber,
         NULL AS EstimatedReleaseDate,
         0 AS IsCreditable
-    FROM dbo.SW_vw_Source_ItemMaster i
-    JOIN dbo.SW_vw_Source_ItemMaster alt
+    FROM dbo.ETB_ItemMaster i
+    JOIN dbo.ETB_ItemMaster alt
         ON i.Base_ITEMNMBR = alt.Base_ITEMNMBR
         AND i.ITEMNMBR != alt.ITEMNMBR
     WHERE alt.QtyOnHand > 0

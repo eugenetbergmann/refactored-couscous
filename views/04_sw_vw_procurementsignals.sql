@@ -138,7 +138,7 @@ Decision AS (
             + ';Hist=' + CAST(COALESCE(i.BatchCount, 0) AS VARCHAR)
             + ';MPK=' + CAST(COALESCE(d.MPK_Noise_Flag, 0) AS VARCHAR) AS DecisionRationale,
         (SELECT Today FROM Config) AS AsOfDate
-    FROM dbo.SW_vw_Source_ItemMaster i
+    FROM dbo.ETB_ItemMaster i
     LEFT JOIN SupplyAgg s ON i.ITEMNMBR = s.ITEMNMBR
     LEFT JOIN DemandAgg d ON i.ITEMNMBR = d.ITEMNMBR
     LEFT JOIN MinPAB m ON i.ITEMNMBR = m.ITEMNMBR

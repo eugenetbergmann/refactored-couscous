@@ -1,8 +1,8 @@
--- SW_vw_Source_ItemMaster
+-- ETB_ItemMaster
 -- Adapter View: Item master with consumption statistics and risk classification
 -- SQL Server 2016 compatible, NOLOCK required
 
-CREATE VIEW dbo.SW_vw_Source_ItemMaster
+ALTER VIEW dbo.ETB_ItemMaster
 AS
 WITH ConsumptionHistory AS (
     SELECT
@@ -24,11 +24,18 @@ ConsumptionStats AS (
         AVG(ConsumptionQty) AS AvgConsumption,
         STDEV(ConsumptionQty) AS StdevConsumption,
         MAX(ConsumptionQty) AS MaxConsumption,
-        MIN(ConsumptionQty) AS MinConsumption,
-    PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY ConsumptionQty) AS P75Consumption,
-    PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY ConsumptionQty) AS P95Consumption
+        MIN(ConsumptionQty) AS MinConsumption
     FROM ConsumptionHistory
     GROUP BY ITEMNMBR
+),
+PercentileStats AS (
+    SELECT DISTINCT
+        ITEMNMBR,
+        PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY ConsumptionQty)
+            OVER (PARTITION BY ITEMNMBR) AS P75Consumption,
+        PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY ConsumptionQty)
+            OVER (PARTITION BY ITEMNMBR) AS P95Consumption
+    FROM ConsumptionHistory
 ),
 ItemBase AS (
     SELECT
@@ -48,8 +55,8 @@ ItemBase AS (
         cs.AvgConsumption,
         cs.StdevConsumption,
         cs.MaxConsumption,
-        cs.P75Consumption,
-        cs.P95Consumption,
+        ps.P75Consumption,
+        ps.P95Consumption,
         CASE
             WHEN cs.BatchCount IS NULL OR cs.BatchCount < 3 THEN 'NEW'
             WHEN cs.StdevConsumption / NULLIF(cs.AvgConsumption, 0) >= 0.40 THEN 'VOLATILE'
@@ -60,8 +67,8 @@ ItemBase AS (
             WHEN cs.BatchCount IS NULL OR cs.BatchCount < 5
                  THEN COALESCE(cs.MaxConsumption, 0) * 1.5
             WHEN cs.StdevConsumption / NULLIF(cs.AvgConsumption, 0) >= 0.40
-                THEN COALESCE(cs.P95Consumption, 0)
-            ELSE COALESCE(cs.P75Consumption, 0)
+                THEN COALESCE(ps.P95Consumption, 0)
+            ELSE COALESCE(ps.P75Consumption, 0)
         END AS SS_Qty,
         CASE WHEN cs.AvgConsumption > q.QTYONHND * 2.0 THEN 'CRITICAL'
              WHEN cs.AvgConsumption > q.QTYONHND * 1.5 THEN 'WARNING'
@@ -75,6 +82,8 @@ ItemBase AS (
         ON TRIM(i.ITEMNMBR) = TRIM(v.[Item Number])
     LEFT JOIN ConsumptionStats cs
         ON TRIM(i.ITEMNMBR) = cs.ITEMNMBR
+    LEFT JOIN PercentileStats ps
+        ON TRIM(i.ITEMNMBR) = ps.ITEMNMBR
      WHERE i.ITEMNMBR NOT LIKE '20%'
       AND i.ITEMNMBR NOT LIKE '15%'
 )
