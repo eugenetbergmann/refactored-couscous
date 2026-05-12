@@ -50,7 +50,7 @@ ItemBase AS (
         COALESCE(q.QTYONHND, 0) AS QtyOnHand,
         COALESCE(q.QTYONORD, 0) AS QtyOnOrder,
         COALESCE(q.QTYBKORD, 0) AS QtyBackOrdered,
-        COALESCE(v.VENDORID, 'UNASSIGNED') AS PRIME_VNDR,
+        COALESCE(v.[Vendor ID], 'UNASSIGNED') AS PRIME_VNDR,
         cs.BatchCount,
         cs.AvgConsumption,
         cs.StdevConsumption,
